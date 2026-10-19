@@ -6,7 +6,7 @@
       </div>
       <div class="badge badge-info badge-soft gap-2 border-0 px-3 py-3 text-xs">
         <span :class="['h-2 w-2 rounded-full', context.devices.length ? 'bg-primary' : 'bg-warning']" />
-        {{ context.devices.length ? device.name : $t('global.no-data-text') }}
+        {{ context.devices.length ? deviceLabel(device) : $t('global.no-data-text') }}
         <button class="btn btn-ghost btn-xs btn-square ml-1" :aria-label="$t('scan.device')" @click="deviceRefresh">
           <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7v5h-5M4 17v-5h5m10-1a7 7 0 0 0-12.7-3M5 13a7 7 0 0 0 12.7 3" /></svg>
         </button>
@@ -52,7 +52,7 @@
             <span class="text-[11px] text-base-content/60">{{ context.devices.length }} {{ context.devices.length === 1 ? 'device' : 'devices' }}</span>
           </div>
           <select v-if="context.devices.length" v-model="device" class="select select-bordered w-full" @change="clear">
-            <option v-for="item in context.devices" :key="item.id" :value="item">{{ item.name }}</option>
+            <option v-for="item in context.devices" :key="item.id" :value="item">{{ deviceLabel(item) }}</option>
           </select>
           <div v-else class="alert alert-warning alert-soft py-2 text-sm">{{ $t('scan.message:no-devices') }}</div>
 
@@ -354,6 +354,11 @@ export default {
   },
 
   methods: {
+    deviceLabel(device) {
+      const model = device.id.match(/:epsonscan2:([^:]+):/);
+      return model ? `Epson ${model[1]}` : device.name;
+    },
+
     _resizePreview() {
       const paperRatio = this.geometry
         ? this.deviceSize.width / this.deviceSize.height
