@@ -59,6 +59,7 @@ import Constants from '../classes/constants';
 const icons = {
   scan: 'M5 5h14v14H5z M8 9h8 M8 12h8 M8 15h5',
   files: 'M7 4h8l4 4v12H7z M15 4v5h4 M4 8v13h12 M10 12h5 M10 16h5',
+  print: 'M6 8V3h12v5M6 17H4V9h16v8h-2M7 14h10v7H7zM17 11h.01',
   settings: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 2.9-.2-.1a1.7 1.7 0 0 0-1.8 0l-.2.1h-3.4l-.1-.2a1.7 1.7 0 0 0-1.5-1.1 1.7 1.7 0 0 0-1.6.8l-.1.2-3-1.7.1-.2a1.7 1.7 0 0 0 0-1.8l-.1-.2v-3.4l.2-.1a1.7 1.7 0 0 0 .3-3.1l-.2-.1 1.7-3 .2.1a1.7 1.7 0 0 0 1.8 0l.2-.1h3.4l.1.2a1.7 1.7 0 0 0 3.1.3l.1-.2 3 1.7-.1.2a1.7 1.7 0 0 0 0 1.8l.1.2v3.4l-.2.1a1.7 1.7 0 0 0-.6 1.5Z',
   about: 'M12 16v-4 M12 8h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'
 };
@@ -73,6 +74,7 @@ export default {
       return [
         { path: '/scan', label: this.$t('navigation.scan'), icon: icons.scan },
         { path: '/files', label: this.$t('navigation.files'), icon: icons.files },
+        { path: '/print', label: this.$t('navigation.print'), icon: icons.print },
         { path: '/settings', label: this.$t('navigation.settings'), icon: icons.settings },
         { path: '/about', label: this.$t('navigation.about'), icon: icons.about }
       ];

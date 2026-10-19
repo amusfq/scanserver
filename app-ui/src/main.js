@@ -31,6 +31,7 @@ const router = createRouter({
   routes: [
     { path: '/about', component: About },
     { path: '/files', component: Files },
+    { path: '/print', component: () => import('./components/Print.vue') },
     { path: '/settings', component: Settings },
     { path: '/scan', component: Scan },
     { path: '/', component: Scan }

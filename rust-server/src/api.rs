@@ -4,13 +4,14 @@ use std::{
     io::{self, Read, Write},
     path::{Path, PathBuf},
     process::Output,
+    sync::atomic::{AtomicU64, Ordering},
     time::UNIX_EPOCH,
 };
 
 use axum::{
     Json,
     body::Body,
-    extract::{Path as AxumPath, RawQuery, State},
+    extract::{Multipart, Path as AxumPath, RawQuery, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
@@ -18,12 +19,15 @@ use base64::{Engine, engine::general_purpose::STANDARD as BASE64};
 use chrono::{DateTime, Local, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tokio::io::AsyncWriteExt;
 use tokio::process::Command;
 use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
 
-use crate::{AppState, scanner};
+use crate::{AppState, printer, scanner};
 
 const DEFAULT_PREVIEW: &[u8] = include_bytes!("../../app-server/data/preview/default.jpg");
+const MAX_PRINT_FILE_SIZE: u64 = 80 * 1024 * 1024;
+static PRINT_UPLOAD_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -234,6 +238,184 @@ pub async fn file_list(
     }
     files.sort_by(|a, b| b.last_modified.cmp(&a.last_modified));
     Ok(Json(files))
+}
+
+pub async fn print_capabilities(
+    State(state): State<std::sync::Arc<AppState>>,
+) -> Result<Json<Value>, ApiError> {
+    let capabilities = state
+        .printer
+        .capabilities()
+        .await
+        .map_err(ApiError::server)?;
+    serde_json::to_value(capabilities)
+        .map(Json)
+        .map_err(|error| ApiError::server(error.to_string()))
+}
+
+pub async fn print_file(
+    State(state): State<std::sync::Arc<AppState>>,
+    AxumPath(filename): AxumPath<String>,
+    Json(settings): Json<printer::Settings>,
+) -> Result<Json<Value>, ApiError> {
+    let path = safe_path(&state.output_dir(), &filename)?;
+    validate_print_path(&path).await?;
+    let job = state
+        .printer
+        .submit(&path.to_string_lossy(), &settings)
+        .await
+        .map_err(ApiError::bad_request)?;
+    Ok(Json(json!({"message": job})))
+}
+
+pub async fn print_upload(
+    State(state): State<std::sync::Arc<AppState>>,
+    mut multipart: Multipart,
+) -> Result<Json<Value>, ApiError> {
+    let mut file: Option<(String, Vec<u8>)> = None;
+    let mut settings: Option<printer::Settings> = None;
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|error| ApiError::bad_request(error.to_string()))?
+    {
+        match field.name() {
+            Some("file") if file.is_none() => {
+                let filename = field
+                    .file_name()
+                    .map(str::to_owned)
+                    .ok_or_else(|| ApiError::bad_request("Missing upload filename"))?;
+                let bytes = field
+                    .bytes()
+                    .await
+                    .map_err(|error| ApiError::bad_request(error.to_string()))?;
+                if bytes.is_empty() || bytes.len() as u64 > MAX_PRINT_FILE_SIZE {
+                    return Err(ApiError::bad_request(
+                        "File must be between 1 byte and 80 MB",
+                    ));
+                }
+                file = Some((filename, bytes.to_vec()));
+            }
+            Some("settings") if settings.is_none() => {
+                let text = field
+                    .text()
+                    .await
+                    .map_err(|error| ApiError::bad_request(error.to_string()))?;
+                settings = Some(
+                    serde_json::from_str(&text)
+                        .map_err(|error| ApiError::bad_request(error.to_string()))?,
+                );
+            }
+            _ => {
+                return Err(ApiError::bad_request(
+                    "Unexpected or duplicate upload field",
+                ));
+            }
+        }
+    }
+
+    let (filename, bytes) = file.ok_or_else(|| ApiError::bad_request("Missing file"))?;
+    let settings = settings.unwrap_or_default();
+    let extension = printable_extension(&filename)?;
+    validate_print_content(extension, &bytes)?;
+    let path = store_print_upload(&state.temp_dir(), extension, &bytes).await?;
+    let result = state
+        .printer
+        .submit(&path.to_string_lossy(), &settings)
+        .await;
+    let _ = tokio::fs::remove_file(path).await;
+    let job = result.map_err(ApiError::bad_request)?;
+    Ok(Json(json!({"message": job})))
+}
+
+async fn validate_print_path(path: &Path) -> Result<(), ApiError> {
+    let metadata = tokio::fs::metadata(path)
+        .await
+        .map_err(|_| ApiError::not_found("File not found"))?;
+    if !metadata.is_file() {
+        return Err(ApiError::bad_request(
+            "Only PDF and image files can be printed",
+        ));
+    }
+    if metadata.len() == 0 || metadata.len() > MAX_PRINT_FILE_SIZE {
+        return Err(ApiError::bad_request(
+            "File must be between 1 byte and 80 MB",
+        ));
+    }
+    let extension = printable_extension(
+        path.file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or_default(),
+    )?;
+    let bytes = tokio::fs::read(path).await?;
+    validate_print_content(extension, &bytes)
+}
+
+fn printable_extension(filename: &str) -> Result<&str, ApiError> {
+    match Path::new(filename)
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "pdf" => Ok("pdf"),
+        "jpg" | "jpeg" => Ok("jpg"),
+        "png" => Ok("png"),
+        "tif" | "tiff" => Ok("tif"),
+        _ => Err(ApiError::bad_request(
+            "Only PDF, JPEG, PNG, and TIFF files can be printed",
+        )),
+    }
+}
+
+fn validate_print_content(extension: &str, bytes: &[u8]) -> Result<(), ApiError> {
+    let valid = match extension {
+        "pdf" => bytes
+            .get(..bytes.len().min(1024))
+            .is_some_and(|head| head.windows(5).any(|window| window == b"%PDF-")),
+        "jpg" => bytes.starts_with(&[0xff, 0xd8, 0xff]),
+        "png" => bytes.starts_with(b"\x89PNG\r\n\x1a\n"),
+        "tif" => bytes.starts_with(b"II*\0") || bytes.starts_with(b"MM\0*"),
+        _ => false,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err(ApiError::bad_request(
+            "File contents do not match its file type",
+        ))
+    }
+}
+
+async fn store_print_upload(
+    directory: &Path,
+    extension: &str,
+    bytes: &[u8],
+) -> Result<PathBuf, ApiError> {
+    loop {
+        let id = PRINT_UPLOAD_ID.fetch_add(1, Ordering::Relaxed);
+        let path = directory.join(format!(
+            "print-{}-{id}.{extension}",
+            chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
+        ));
+        match tokio::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+            .await
+        {
+            Ok(mut file) => {
+                if let Err(error) = file.write_all(bytes).await {
+                    let _ = tokio::fs::remove_file(&path).await;
+                    return Err(ApiError::from(error));
+                }
+                return Ok(path);
+            }
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(ApiError::from(error)),
+        }
+    }
 }
 
 pub async fn download(

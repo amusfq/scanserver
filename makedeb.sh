@@ -59,7 +59,7 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: $ARCH
-Depends: adduser, imagemagick, poppler-utils, sane-utils
+Depends: adduser, cups-client, imagemagick, poppler-utils, sane-utils
 Recommends: sane-airscan, ipp-usb, tesseract-ocr, tesseract-ocr-ara, tesseract-ocr-ces, tesseract-ocr-deu, tesseract-ocr-eng, tesseract-ocr-spa, tesseract-ocr-fra, tesseract-ocr-ita, tesseract-ocr-nld, tesseract-ocr-pol, tesseract-ocr-por, tesseract-ocr-rus, tesseract-ocr-tur, tesseract-ocr-chi-sim
 Maintainer: amusfq <amusfq@users.noreply.github.com>
 Description: Web-based UI for SANE

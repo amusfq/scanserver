@@ -1,4 +1,5 @@
 mod api;
+mod printer;
 mod scanner;
 
 use std::{env, net::SocketAddr, path::PathBuf, sync::Arc};
@@ -16,6 +17,7 @@ struct AppState {
     static_dir: PathBuf,
     scanimage: PathBuf,
     convert: PathBuf,
+    printer: printer::Printer,
     ocr_language: String,
     scan_lock: Arc<Mutex<()>>,
     devices: Arc<tokio::sync::RwLock<Option<Vec<scanner::Device>>>>,
@@ -39,6 +41,7 @@ impl AppState {
             convert: env::var_os("CONVERT")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("/usr/bin/convert")),
+            printer: printer::Printer::from_env(),
             ocr_language: env::var("OCR_LANG")
                 .ok()
                 .filter(|language| !language.is_empty())
@@ -80,6 +83,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             get(api::read_context).delete(api::delete_context),
         )
         .route("/api/v1/files", get(api::file_list))
+        .route("/api/v1/files/{filename}/print", post(api::print_file))
         .route(
             "/api/v1/files/{filename}/actions/{action}",
             post(api::file_action),
@@ -98,6 +102,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .delete(api::delete_preview),
         )
         .route("/api/v1/scan", post(api::scan))
+        .route("/api/v1/print/capabilities", get(api::print_capabilities))
+        .route(
+            "/api/v1/print/upload",
+            post(api::print_upload).layer(axum::extract::DefaultBodyLimit::max(82 * 1024 * 1024)),
+        )
         .route("/api/v1/system", get(api::system_info))
         .fallback_service(
             ServeDir::new(state.static_dir.clone()).append_index_html_on_directories(true),

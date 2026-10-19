@@ -17,6 +17,7 @@ FROM debian:trixie-slim AS scanservjs-base
 RUN apt-get update \
   && apt-get install -yq \
     adduser \
+    cups-client \
     imagemagick \
     ipp-usb \
     poppler-utils \

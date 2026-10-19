@@ -25,9 +25,13 @@ docker build -t scanserver .
 docker run --rm --privileged -p 8080:8080 -v scanserver-data:/data scanserver
 ```
 
+## Printing
+
+Scanserver sends PDF and image jobs through CUPS. It uses the CUPS default printer unless `PRINTER_QUEUE` is set. In Docker, point `CUPS_SERVER` at a CUPS server reachable from the container and set `PRINTER_QUEUE` to a queue on that server; for example, add `-e CUPS_SERVER=192.168.1.20:631 -e PRINTER_QUEUE=Epson_L3210_IPP` to `docker run`. The print page reads paper, media, color, and quality choices from that queue.
+
 ## Configuration
 
-The server listens on `0.0.0.0:8080` by default. Set `SCANSERV_HOST`, `SCANSERV_PORT`, `SCANSERV_STATIC_DIR`, and `SCANSERV_DATA_DIR` to override those values. SANE options such as `DEVICES`, `SANED_NET_HOSTS`, `AIRSCAN_DEVICES`, `PIXMA_HOSTS`, and `OCR_LANG` are also read from the environment.
+The server listens on `0.0.0.0:8080` by default. Set `SCANSERV_HOST`, `SCANSERV_PORT`, `SCANSERV_STATIC_DIR`, and `SCANSERV_DATA_DIR` to override those values. Set `CUPS_SERVER` and `PRINTER_QUEUE` to select a remote CUPS server and printer. SANE options such as `DEVICES`, `SANED_NET_HOSTS`, `AIRSCAN_DEVICES`, `PIXMA_HOSTS`, and `OCR_LANG` are also read from the environment.
 
 Scanserver has no built-in login or TLS. Keep it on a trusted network or place it behind an authenticated HTTPS proxy.
 

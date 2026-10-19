@@ -49,6 +49,9 @@
             </div>
           </div>
           <div class="flex shrink-0 items-center gap-1">
+            <button v-if="['.pdf', '.jpg', '.jpeg', '.png', '.tif', '.tiff'].includes(file.extension.toLowerCase())" class="btn btn-ghost btn-square btn-sm text-primary" :aria-label="$t('navigation.print')" @click="print(file)">
+              <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M6 8V3h12v5M6 17H4V9h16v8h-2M7 14h10v7H7zM17 11h.01" /></svg>
+            </button>
             <button class="btn btn-ghost btn-square btn-sm" :aria-label="$t('files.actions')" @click="open(file)">
               <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg>
             </button>
@@ -207,6 +210,10 @@ export default {
 
     open(file) {
       window.location.href = `api/v1/files/${encodeURIComponent(file.name)}`;
+    },
+
+    print(file) {
+      this.$router.push({ path: '/print', query: { file: file.name } });
     }
   }
 };
