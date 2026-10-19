@@ -85,7 +85,7 @@ export default {
     },
     reload() {
       storage.settings = this.settings;
-      location.href = `?anticache=${Date.now()}${location.hash}`;
+      location.href = `${location.pathname}?anticache=${Date.now()}`;
     },
     reset() {
       this.$emit('mask', 1);

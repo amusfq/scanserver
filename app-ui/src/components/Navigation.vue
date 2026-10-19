@@ -72,9 +72,9 @@ export default {
   computed: {
     items() {
       return [
+        { path: '/print', label: this.$t('navigation.print'), icon: icons.print },
         { path: '/scan', label: this.$t('navigation.scan'), icon: icons.scan },
         { path: '/files', label: this.$t('navigation.files'), icon: icons.files },
-        { path: '/print', label: this.$t('navigation.print'), icon: icons.print },
         { path: '/settings', label: this.$t('navigation.settings'), icon: icons.settings },
         { path: '/about', label: this.$t('navigation.about'), icon: icons.about }
       ];

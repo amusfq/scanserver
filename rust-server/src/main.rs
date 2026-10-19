@@ -9,7 +9,7 @@ use axum::{
     routing::{get, post},
 };
 use tokio::sync::Mutex;
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 
 #[derive(Clone)]
 struct AppState {
@@ -77,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::fs::create_dir_all(directory).await?;
     }
 
+    let index = ServeFile::new(state.static_dir.join("index.html"));
     let app = Router::new()
         .route(
             "/api/v1/context",
@@ -108,6 +109,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             post(api::print_upload).layer(axum::extract::DefaultBodyLimit::max(82 * 1024 * 1024)),
         )
         .route("/api/v1/system", get(api::system_info))
+        .route_service("/about", index.clone())
+        .route_service("/files", index.clone())
+        .route_service("/print", index.clone())
+        .route_service("/scan", index.clone())
+        .route_service("/settings", index)
         .fallback_service(
             ServeDir::new(state.static_dir.clone()).append_index_html_on_directories(true),
         )

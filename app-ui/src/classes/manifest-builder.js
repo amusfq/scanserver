@@ -26,7 +26,7 @@ export default class ManifestBuilder {
       background_color : this.dark ? '#000000' : '#FFFFFF',
       display : 'standalone',
       scope : '/',
-      start_url : '/#/scan',
+      start_url : '/scan',
       name : 'Scanserver',
       short_name : 'Scanserver',
       description : 'A simple network scanner',
