@@ -191,15 +191,18 @@ const mediaDimensions = {
   b3: [353, 500], b4: [250, 353], b5: [176, 250], b6: [125, 176],
   letter: [215.9, 279.4], legal: [215.9, 355.6], tabloid: [279.4, 431.8],
   '3.5x5': [88.9, 127], '4x6': [101.6, 152.4], '5x7': [127, 177.8], '5x8': [127, 203.2], '8x10': [203.2, 254],
-  fanfoldgermanlegal: [215.9, 330.2],
-  postcard: [100, 148], 'env10': [104.8, 241.3], 'envdl': [110, 220], 'envc6': [114, 162]
+  fanfoldgermanlegal: [215.9, 330.2], '169widesize': [101.6, 180.6],
+  indianlegal: [215.9, 355.6], postcard: [100, 148], 'env10': [104.8, 241.3], 'envdl': [110, 220], 'envc6': [114, 162],
+  envelope_10: [104.8, 241.3], envelopedl: [110, 220], envelopec6: [114, 162]
 };
 
 function dimensionsFor(value) {
   const label = value.replace(/^Custom\./, '').toLowerCase();
   if (mediaDimensions[label]) return mediaDimensions[label];
   const match = label.match(/^(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)mm$/);
-  return match ? [Number(match[1]), Number(match[2])] : null;
+  if (match) return [Number(match[1]), Number(match[2])];
+  const inches = label.match(/^(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)in$/);
+  return inches ? [Number(inches[1]) * 25.4, Number(inches[2]) * 25.4] : null;
 }
 
 export default {

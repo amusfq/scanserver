@@ -62,7 +62,8 @@ impl Printer {
         Ok(Capabilities {
             media: option(&options, &defaults, "PageSize", "Media size"),
             media_type: option(&options, &defaults, "MediaType", "Media type"),
-            color: option(&options, &defaults, "ColorModel", "Color"),
+            color: option(&options, &defaults, "ColorModel", "Color")
+                .or_else(|| option(&options, &defaults, "Color", "Color")),
             quality: option(&options, &defaults, "cupsPrintQuality", "Print quality")
                 .or_else(|| option(&options, &defaults, "PrintQuality", "Print quality")),
             duplex: option(&options, &defaults, "Duplex", "Two-sided"),
