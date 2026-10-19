@@ -27,7 +27,7 @@ docker run --rm --privileged -p 8080:8080 -v scanserver-data:/data scanserver
 
 ## Printing
 
-Scanserver sends PDF and image jobs through CUPS. It uses the CUPS default printer unless `PRINTER_QUEUE` is set. In Docker, point `CUPS_SERVER` at a CUPS server reachable from the container and set `PRINTER_QUEUE` to a queue on that server; for example, add `-e CUPS_SERVER=192.168.1.20:631 -e PRINTER_QUEUE=Epson_L3210_IPP` to `docker run`. The print page reads paper, media, color, and quality choices from that queue.
+Scanserver sends PDF and image jobs through CUPS. It uses the CUPS default printer unless `PRINTER_QUEUE` is set. In Docker, point `CUPS_SERVER` at a CUPS server reachable from the container and set `PRINTER_QUEUE` to a queue on that server; for example, add `-e CUPS_SERVER=192.168.1.20:631 -e PRINTER_QUEUE=Epson-L3210` to `docker run`. The print page reads paper, media, color, and quality choices from that queue.
 
 ## Configuration
 
