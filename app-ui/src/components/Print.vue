@@ -121,6 +121,7 @@
             <div v-for="(photo, index) in photos" :key="photo.id" class="flex items-center gap-3 p-3">
               <img :src="photo.url" class="h-12 w-12 rounded-lg border border-base-300 object-cover" alt="">
               <div class="min-w-0 flex-1 truncate text-sm font-medium">{{ photo.name }}</div>
+              <button class="btn btn-outline btn-xs" @click="editPhoto(photo)">{{ $t('print.crop-photo') }}</button>
               <label class="sr-only" :for="`copies-${photo.id}`">{{ $t('print.copies') }}</label>
               <input :id="`copies-${photo.id}`" v-model.number="photo.copies" class="input input-bordered input-sm w-20" type="number" min="1" max="99" :aria-label="$t('print.copies')" @input="renderPhotoPreview">
               <div class="flex gap-1">
@@ -132,6 +133,22 @@
           </div>
           <p v-if="photoCount > 200 || pageCount > 10" class="mt-3 text-xs text-error">{{ $t('print.photo-limit') }}</p>
         </section>
+
+        <dialog ref="photoCropDialog" class="modal" @close="resetPhotoCrop">
+          <div class="modal-box max-w-3xl">
+            <h3 class="text-lg font-semibold">{{ $t('print.crop-photo') }}<span v-if="editingPhoto"> · {{ editingPhoto.name }}</span></h3>
+            <p class="mt-1 text-sm text-base-content/60">{{ $t('print.crop-help') }}</p>
+            <Cropper v-if="editingPhoto" ref="photoCropper" :key="editingPhoto.id" :src="editingPhoto.url"
+              class="cropper mt-4 h-[min(65vh,560px)] w-full overflow-hidden rounded-xl"
+              :default-position="cropperDefaultPosition" :default-size="cropperDefaultSize"
+              :stencil-props="{ aspectRatio: photoAspectRatio }" @change="onPhotoCropChange" />
+            <div class="modal-action">
+              <button class="btn btn-ghost" @click="closePhotoCrop">{{ $t('batch-dialog.btn-cancel') }}</button>
+              <button class="btn btn-primary" :disabled="!cropDraft" @click="applyPhotoCrop">{{ $t('print.apply-crop') }}</button>
+            </div>
+          </div>
+          <form method="dialog" class="modal-backdrop"><button>{{ $t('batch-dialog.btn-cancel') }}</button></form>
+        </dialog>
 
         <section class="card rounded-2xl border border-base-300 bg-base-100 p-5 shadow-sm sm:p-6">
           <div class="flex items-center justify-between gap-3">
@@ -163,7 +180,7 @@
           <span v-if="mode === 'photos' && pageCount" class="badge badge-ghost">{{ pageIndex + 1 }} / {{ pageCount }}</span>
         </div>
         <div class="grid min-h-[360px] place-items-center bg-base-200 p-5 sm:p-8">
-          <canvas v-if="mode === 'photos' && capacity" ref="photoPreview" class="max-h-[68vh] w-full max-w-[520px] border border-base-300 bg-white shadow-lg" :width="previewWidth" :height="previewHeight" :aria-label="$t('print.preview')"></canvas>
+          <canvas v-if="mode === 'photos' && capacity" ref="photoPreview" class="block h-auto max-h-[68vh] max-w-full border border-base-300 bg-white shadow-lg" :width="previewWidth" :height="previewHeight" :aria-label="$t('print.preview')"></canvas>
           <div v-else-if="mode === 'document' && documentPreviewUrl" class="w-full overflow-hidden rounded-lg bg-white shadow-lg">
             <iframe v-if="documentIsPdf" :src="documentPreviewUrl" class="aspect-[0.707] max-h-[68vh] w-full" :title="$t('print.preview')"></iframe>
             <img v-else :src="documentPreviewUrl" class="mx-auto max-h-[68vh] w-auto max-w-full object-contain" :alt="documentName">
@@ -179,9 +196,11 @@
 </template>
 
 <script>
+import { Cropper } from 'vue-advanced-cropper';
 import { markRaw } from 'vue';
 import Common from '../classes/common';
 import photoSheetPdf from '../classes/photo-sheet-pdf';
+import 'vue-advanced-cropper/dist/style.css';
 
 const imageExtensions = ['jpg', 'jpeg', 'png', 'webp'];
 const documentExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff'];
@@ -208,6 +227,7 @@ function dimensionsFor(value) {
 
 export default {
   name: 'Print',
+  components: { Cropper },
   emits: ['mask', 'notify'],
   data() {
     return {
@@ -215,7 +235,7 @@ export default {
       localFile: null, documentPreviewUrl: '', documentPreviewIsOwned: false, documentPreviewRequest: 0,
       settings: { media: '', mediaType: '', color: '', quality: '', duplex: '', borderless: '', copies: 1, fitToPage: false },
       photos: [], savedPhotoName: '', orientation: 'portrait', photoWidth: 3, photoHeight: 4,
-      margin: 5, gap: 3, pageIndex: 0, busy: false, nextPhotoId: 1
+      margin: 5, gap: 3, pageIndex: 0, busy: false, nextPhotoId: 1, editingPhotoId: null, cropDraft: null
     };
   },
   computed: {
@@ -244,11 +264,23 @@ export default {
       const dimensions = dimensionsFor(this.settings.media) || [210, 297];
       return this.orientation === 'landscape' ? [dimensions[1], dimensions[0]] : dimensions;
     },
+    photoWidthMm() {
+      return Number(this.photoWidth) * 10;
+    },
+    photoHeightMm() {
+      return Number(this.photoHeight) * 10;
+    },
+    photoAspectRatio() {
+      return this.photoWidth > 0 && this.photoHeight > 0 ? this.photoWidth / this.photoHeight : 3 / 4;
+    },
+    editingPhoto() {
+      return this.photos.find(photo => photo.id === this.editingPhotoId);
+    },
     capacity() {
       if (this.capabilities?.media?.choices?.length && !this.photoMediaChoices.length) return 0;
       const [width, height] = this.paperDimensions;
-      const photoWidth = Number(this.photoWidth);
-      const photoHeight = Number(this.photoHeight);
+      const photoWidth = this.photoWidthMm;
+      const photoHeight = this.photoHeightMm;
       if (![width, height, photoWidth, photoHeight, this.margin, this.gap].every(Number.isFinite) || photoWidth <= 0 || photoHeight <= 0 || this.margin < 0 || this.gap < 0) return 0;
       const columns = Math.floor((width - 2 * this.margin + this.gap) / (photoWidth + this.gap));
       const rows = Math.floor((height - 2 * this.margin + this.gap) / (photoHeight + this.gap));
@@ -397,7 +429,7 @@ export default {
           image.src = url;
           await image.decode();
           if (image.width * image.height > 60000000) throw new Error('Photo is too large to edit');
-          this.photos.push({ id: this.nextPhotoId++, name: file.name, url, image, fileSize: file.size, copies: 1 });
+          this.photos.push({ id: this.nextPhotoId++, name: file.name, url, image, fileSize: file.size, copies: 1, crop: null });
         } catch {
           URL.revokeObjectURL(url);
           this.$emit('notify', { type: 'e', message: this.$t('print.invalid-photo') });
@@ -422,6 +454,33 @@ export default {
       URL.revokeObjectURL(this.photos[index].url);
       this.photos.splice(index, 1);
     },
+    editPhoto(photo) {
+      this.editingPhotoId = photo.id;
+      this.cropDraft = photo.crop ? { ...photo.crop } : null;
+      this.$refs.photoCropDialog?.showModal();
+    },
+    cropperDefaultPosition() {
+      return this.editingPhoto?.crop && { left: this.editingPhoto.crop.left, top: this.editingPhoto.crop.top };
+    },
+    cropperDefaultSize() {
+      return this.editingPhoto?.crop && { width: this.editingPhoto.crop.width, height: this.editingPhoto.crop.height };
+    },
+    onPhotoCropChange({ coordinates }) {
+      this.cropDraft = { left: coordinates.left, top: coordinates.top, width: coordinates.width, height: coordinates.height };
+    },
+    applyPhotoCrop() {
+      if (this.editingPhoto && this.cropDraft) this.editingPhoto.crop = { ...this.cropDraft };
+      this.$refs.photoCropDialog?.close();
+      this.renderPhotoPreview();
+    },
+    closePhotoCrop() {
+      this.$refs.photoCropDialog?.close();
+      this.resetPhotoCrop();
+    },
+    resetPhotoCrop() {
+      this.editingPhotoId = null;
+      this.cropDraft = null;
+    },
     movePhoto(index, direction) {
       const other = index + direction;
       if (other < 0 || other >= this.photos.length) return;
@@ -433,11 +492,11 @@ export default {
     },
     photoPlacements(pageIndex) {
       const [pageWidth, pageHeight] = this.paperDimensions;
-      const columns = Math.floor((pageWidth - 2 * this.margin + this.gap) / (this.photoWidth + this.gap));
-      const rows = Math.floor((pageHeight - 2 * this.margin + this.gap) / (this.photoHeight + this.gap));
+      const columns = Math.floor((pageWidth - 2 * this.margin + this.gap) / (this.photoWidthMm + this.gap));
+      const rows = Math.floor((pageHeight - 2 * this.margin + this.gap) / (this.photoHeightMm + this.gap));
       const count = Math.max(0, columns * rows);
-      const blockWidth = columns * this.photoWidth + Math.max(0, columns - 1) * this.gap;
-      const blockHeight = rows * this.photoHeight + Math.max(0, rows - 1) * this.gap;
+      const blockWidth = columns * this.photoWidthMm + Math.max(0, columns - 1) * this.gap;
+      const blockHeight = rows * this.photoHeightMm + Math.max(0, rows - 1) * this.gap;
       const xStart = (pageWidth - blockWidth) / 2;
       const yStart = (pageHeight - blockHeight) / 2;
       const start = pageIndex * count;
@@ -452,8 +511,8 @@ export default {
           const index = cursor + copy - start;
           placements.push({
             photo,
-            x: xStart + (index % columns) * (this.photoWidth + this.gap),
-            y: yStart + Math.floor(index / columns) * (this.photoHeight + this.gap)
+            x: xStart + (index % columns) * (this.photoWidthMm + this.gap),
+            y: yStart + Math.floor(index / columns) * (this.photoHeightMm + this.gap)
           });
         }
         cursor += copies;
@@ -464,21 +523,22 @@ export default {
     drawPhotoPage(canvas, pageIndex) {
       const [widthMm, heightMm] = this.paperDimensions;
       const context = canvas.getContext('2d');
-      const scale = canvas.width / widthMm;
+      const scaleX = canvas.width / widthMm;
+      const scaleY = canvas.height / heightMm;
       context.fillStyle = '#fff';
       context.fillRect(0, 0, canvas.width, canvas.height);
       context.imageSmoothingEnabled = true;
       context.imageSmoothingQuality = 'high';
       for (const { photo, x, y } of this.photoPlacements(pageIndex)) {
-        const width = this.photoWidth * scale;
-        const height = this.photoHeight * scale;
-        const sourceRatio = photo.image.width / photo.image.height;
-        const targetRatio = width / height;
-        const sourceWidth = sourceRatio > targetRatio ? photo.image.height * targetRatio : photo.image.width;
-        const sourceHeight = sourceRatio > targetRatio ? photo.image.height : photo.image.width / targetRatio;
-        const sourceX = (photo.image.width - sourceWidth) / 2;
-        const sourceY = (photo.image.height - sourceHeight) / 2;
-        context.drawImage(photo.image, sourceX, sourceY, sourceWidth, sourceHeight, x * scale, y * scale, width, height);
+        const crop = photo.crop || { left: 0, top: 0, width: photo.image.width, height: photo.image.height };
+        const targetRatio = this.photoWidthMm / this.photoHeightMm;
+        const sourceRatio = crop.width / crop.height;
+        const sourceWidth = sourceRatio > targetRatio ? crop.height * targetRatio : crop.width;
+        const sourceHeight = sourceRatio > targetRatio ? crop.height : crop.width / targetRatio;
+        const sourceX = crop.left + (crop.width - sourceWidth) / 2;
+        const sourceY = crop.top + (crop.height - sourceHeight) / 2;
+        context.drawImage(photo.image, sourceX, sourceY, sourceWidth, sourceHeight,
+          x * scaleX, y * scaleY, this.photoWidthMm * scaleX, this.photoHeightMm * scaleY);
       }
     },
     async renderPhotoPreview() {
