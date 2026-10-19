@@ -1,109 +1,82 @@
 <template>
-  <div>
-    <v-app-bar class="elevation-0" :color="appColor" app>
-      <v-app-bar-nav-icon @click.stop="drawer = !drawer" />
-      <v-toolbar-title class="unselectable">{{ $t('global.application-name') }}</v-toolbar-title>
-      <v-spacer />
-      <v-toolbar-items class="d-none d-md-block">
-        <v-btn class="transparent" elevation="0" @click="go('/scan')"><v-icon class="mr-2" :icon="mdiCamera" />{{ $t('navigation.scan') }}</v-btn>
-        <v-btn class="transparent" elevation="0" @click="go('/files')"><v-icon class="mr-2" :icon="mdiFileDocumentMultiple" />{{ $t('navigation.files') }}</v-btn>
-        <v-btn class="transparent" elevation="0" @click="go('/settings')"><v-icon class="mr-2" :icon="mdiCog" />{{ $t('navigation.settings') }}</v-btn>
-        <v-btn class="transparent" elevation="0" @click="go('/about')"><v-icon class="mr-2" :icon="mdiInformation" />{{ $t('navigation.about') }}</v-btn>
-      </v-toolbar-items>
-    </v-app-bar>
+  <aside class="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-base-300 bg-base-100 px-5 py-6 lg:flex">
+    <div class="flex items-center gap-3 px-2">
+      <div class="grid h-10 w-10 place-items-center rounded-xl bg-primary text-primary-content">
+        <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h16v11H4zM7 4.5h10v3H7zM8 11h8M8 14h5" />
+        </svg>
+      </div>
+      <div>
+        <div class="text-[15px] font-semibold tracking-tight">Scanserver</div>
+        <div class="mt-0.5 text-xs text-base-content/60">{{ $t('navigation.scan') }}</div>
+      </div>
+    </div>
 
-    <v-navigation-drawer v-model="drawer" class="elevation-0" app temporary>
-      <v-list nav>
-        <v-list-item :title="$t('navigation.scan')" @click="go('/scan')">
-          <template #prepend>
-            <v-icon :icon="mdiCamera" />
-          </template>
-        </v-list-item>
+    <nav class="mt-8" aria-label="Main navigation">
+      <ul class="menu w-full gap-1 p-0 text-sm">
+        <li v-for="item in items" :key="item.path">
+          <router-link :to="item.path" custom v-slot="{ href, navigate, isActive }">
+            <a :href="href" :class="{ 'menu-active': isActive }" @click="navigate">
+              <svg viewBox="0 0 24 24" class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" />
+              </svg>
+              {{ item.label }}
+            </a>
+          </router-link>
+        </li>
+      </ul>
+    </nav>
 
-        <v-list-item :title="$t('navigation.files')" @click="go('/files')">
-          <template #prepend>
-            <v-icon :icon="mdiFileDocumentMultiple" />
-          </template>
-        </v-list-item>
+    <div class="mt-auto border-t border-base-300 px-3 pt-5 text-xs text-base-content/60">
+      <div>{{ $t('navigation.version') }} {{ version }}</div>
+      <div class="mt-1">&copy; {{ new Date().getFullYear() }} Scanserver</div>
+    </div>
+  </aside>
 
-        <v-list-item :title="$t('navigation.settings')" @click="go('/settings')">
-          <template #prepend>
-            <v-icon :icon="mdiCog" />
-          </template>
-        </v-list-item>
+  <header class="sticky top-0 z-20 flex h-14 items-center border-b border-base-300 bg-base-100/95 px-4 backdrop-blur lg:hidden">
+    <div class="flex items-center gap-2.5">
+      <div class="grid h-8 w-8 place-items-center rounded-lg bg-primary text-primary-content">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5h16v11H4zM7 4.5h10v3H7zM8 11h8M8 14h5" /></svg>
+      </div>
+      <span class="text-sm font-semibold tracking-tight">Scanserver</span>
+    </div>
+    <span class="ml-auto text-xs text-base-content/60">v{{ version }}</span>
+  </header>
 
-        <v-list-item :title="$t('navigation.about')" @click="go('/about')">
-          <template #prepend>
-            <v-icon :icon="mdiInformation" />
-          </template>
-        </v-list-item>
-
-        <v-divider />
-
-        <v-list-item>
-          <v-list-item-title class="unselectable">{{ $t('navigation.version') }} {{ version }}</v-list-item-title>
-          <template #prepend>
-            <v-icon :icon="mdiTools" />
-          </template>
-        </v-list-item>
-      </v-list>
-
-      <template #append>
-        <div class="d-flex flex-row pa-4 text-caption">
-          <div class="ml-auto">
-            &copy; 2016 - {{ new Date().getFullYear() }} Sam Strachan
-          </div>
-        </div>
-      </template>
-    </v-navigation-drawer>
-  </div>
+  <nav class="dock dock-sm z-30 border-t border-base-300 bg-base-100/95 lg:hidden" aria-label="Main navigation">
+    <router-link v-for="item in items" :key="item.path" :to="item.path" custom v-slot="{ href, navigate, isActive }">
+      <a :href="href" :aria-current="isActive ? 'page' : undefined" :class="isActive ? 'dock-active text-primary' : 'text-base-content/60'" @click="navigate">
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" :d="item.icon" /></svg>
+        <span class="dock-label">{{ item.label }}</span>
+      </a>
+    </router-link>
+  </nav>
 </template>
 
 <script>
 import Constants from '../classes/constants';
-import { mdiCamera, mdiCog, mdiFileDocumentMultiple, mdiInformation, mdiTools } from '@mdi/js';
+
+const icons = {
+  scan: 'M5 5h14v14H5z M8 9h8 M8 12h8 M8 15h5',
+  files: 'M7 4h8l4 4v12H7z M15 4v5h4 M4 8v13h12 M10 12h5 M10 16h5',
+  settings: 'M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.7 2.9-.2-.1a1.7 1.7 0 0 0-1.8 0l-.2.1h-3.4l-.1-.2a1.7 1.7 0 0 0-1.5-1.1 1.7 1.7 0 0 0-1.6.8l-.1.2-3-1.7.1-.2a1.7 1.7 0 0 0 0-1.8l-.1-.2v-3.4l.2-.1a1.7 1.7 0 0 0 .3-3.1l-.2-.1 1.7-3 .2.1a1.7 1.7 0 0 0 1.8 0l.2-.1h3.4l.1.2a1.7 1.7 0 0 0 3.1.3l.1-.2 3 1.7-.1.2a1.7 1.7 0 0 0 0 1.8l.1.2v3.4l-.2.1a1.7 1.7 0 0 0-.6 1.5Z',
+  about: 'M12 16v-4 M12 8h.01 M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'
+};
+
 export default {
   name: 'Navigation',
-
-  props: {
-    appColor: {
-      type: String,
-      default: 'accent-4'
-    }
-  },
-
-  setup() {
-    return {
-      mdiCamera,
-      mdiCog,
-      mdiFileDocumentMultiple,
-      mdiInformation,
-      mdiTools
-    };
-  },
-
   data() {
-    return {
-      drawer: false,
-      version: Constants.Version
-    };
+    return { version: Constants.Version };
   },
-
-  methods: {
-    go(location) {
-      if (this.$route.path !== location) {
-        this.$router.push(location);
-      }
+  computed: {
+    items() {
+      return [
+        { path: '/scan', label: this.$t('navigation.scan'), icon: icons.scan },
+        { path: '/files', label: this.$t('navigation.files'), icon: icons.files },
+        { path: '/settings', label: this.$t('navigation.settings'), icon: icons.settings },
+        { path: '/about', label: this.$t('navigation.about'), icon: icons.about }
+      ];
     }
   }
 };
 </script>
-
-<style>
-.unselectable {
-  -moz-user-select: none;
-  -webkit-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-</style>

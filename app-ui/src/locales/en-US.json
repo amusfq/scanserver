@@ -7,12 +7,12 @@
   },
 
   "global": {
-    "application-name": "scanservjs",
+    "application-name": "Scanserver",
     "no-data-text": "No data available"
   },
 
   "about": {
-    "main": "scanservjs is a simple web-based UI for your scanner. It allows you to share one or more scanners (using SANE) on a network without the need for drivers or complicated installation. It can save to TIF, JPG, PNG, PDF and TXT (with Tesseract OCR) with varying compression settings, all of which can be configured. It supports multipage scanning and all SANE compatible devices.",
+    "main": "Scanserver is a web interface for SANE scanners. Scan documents over your network, choose image and document formats, and save completed scans in one place.",
     "issue": "File an issue or view the source code:",
     "api": "OpenAPI documentation:",
     "system-info": "System information"
@@ -64,7 +64,8 @@
     "dialog:rename-save": "Save",
     "actions": "Actions",
     "thumbnail-show": "Show thumbnails",
-    "thumbnail-size": "Thumbnail size"
+    "thumbnail-size": "Thumbnail size",
+    "empty": "No scans yet"
   },
 
   "navigation": {
@@ -183,6 +184,7 @@
     "theme:system": "System",
     "theme:light": "Light",
     "theme:dark": "Dark",
+    "show-files-after-scan": "Show files after scan",
     "color": "Color",
     "color:description": "Color. This will change the color of the top app bar.",
     "show-files-after-scan:description": "Show files after scan completes",

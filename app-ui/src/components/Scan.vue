@@ -1,136 +1,151 @@
 <template>
-  <div>
-    <v-row>
-      <v-col cols="12" md="3" class="mb-10 mb-md-0">
-        <div class="d-flex">
-          <v-select v-if="context.devices.length > 0"
-            v-model="device"
-            style="min-width: 0px;"
-            :label="$t('scan.device')"
-            :items="context.devices" return-object item-title="name" @update:model-value="clear" />
-          <v-btn small class="ml-2 mt-4 pl-1 pr-1" min-width="32" @click="deviceRefresh"><v-icon :icon="mdiRefresh" /></v-btn>
+  <div class="space-y-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">{{ $t('navigation.scan') }}</h1>
+      </div>
+      <div class="badge badge-info badge-soft gap-2 border-0 px-3 py-3 text-xs">
+        <span :class="['h-2 w-2 rounded-full', context.devices.length ? 'bg-primary' : 'bg-warning']" />
+        {{ context.devices.length ? device.name : $t('global.no-data-text') }}
+        <button class="btn btn-ghost btn-xs btn-square ml-1" :aria-label="$t('scan.device')" @click="deviceRefresh">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7v5h-5M4 17v-5h5m10-1a7 7 0 0 0-12.7-3M5 13a7 7 0 0 0 12.7 3" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <section class="card overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+        <div class="card-body gap-0 p-0">
+        <div class="flex items-center justify-between border-b border-base-300 px-4 py-3.5 sm:px-5">
+          <div>
+            <h2 class="text-sm font-semibold">{{ $t('scan.btn-preview') }}</h2>
+          </div>
+          <button v-if="geometry" class="btn btn-outline btn-sm" @click="createPreview">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8" /><path stroke-linecap="round" d="m16 16 4.5 4.5M10.8 7.5v6.6M7.5 10.8h6.6" /></svg>
+            {{ $t('scan.btn-preview') }}
+          </button>
         </div>
 
-        <v-select v-if="'--source' in device.features"
-          v-model="request.params.source"
-          :no-data-text="$t('global.no-data-text')" :label="$t('scan.source')"
-          :items="sources" item-value="value" item-title="text" />
-
-        <v-select v-if="'--adf-mode' in device.features"
-          v-model="request.params.adfMode"
-          :no-data-text="$t('global.no-data-text')" :label="$t('scan.adf-mode')"
-          :items="adfModes" item-value="value" item-title="text" />
-
-        <v-select
-          v-model="request.params.resolution"
-          :no-data-text="$t('global.no-data-text')" :label="$t('scan.resolution')"
-          :items="device.features['--resolution']['options']" />
-
-        <v-select v-if="'--mode' in device.features"
-          v-model="request.params.mode"
-          :no-data-text="$t('global.no-data-text')" :label="$t('scan.mode')"
-          :items="modes" item-value="value" item-title="text" />
-
-        <v-select v-if="'--disable-dynamic-lineart' in device.features"
-          v-model="request.params.mode"
-          :label="$t('scan.dynamic-lineart')"
-          :items="[
-            { value: false, text: $t('scan.dynamic-lineart:disabled') },
-            { value: true, text: $t('scan.dynamic-lineart:enabled') }]"
-          item-value="value" item-title="text" />
-
-        <v-select v-model="request.batch" :label="$t('scan.batch')"
-          :no-data-text="$t('global.no-data-text')"
-          :items="batchModes" item-value="value" item-title="text" />
-
-        <v-select
-          v-model="request.filters"
-          :no-data-text="$t('global.no-data-text')"
-          :items="filters"
-          item-title="text"
-          item-value="value"
-          :label="$t('scan.filters')"
-          multiple
-          @update:model-value="readPreview" />
-
-        <v-select
-          v-model="request.pipeline"
-          :no-data-text="$t('global.no-data-text')"
-          :label="$t('scan.format')"
-          :items="pipelines"
-          item-title="text"
-          item-value="value" />
-
-        <div class="d-flex flex-row-reverse flex-wrap">
-          <v-btn color="blue" class="ml-1 mb-1" @click="scan(1)">{{ $t('scan.btn-scan') }} <v-icon class="ml-2" :icon="mdiCamera" /></v-btn>
-          <v-btn v-if="geometry" color="green" class="ml-1 mb-1" @click="createPreview">{{ $t('scan.btn-preview') }} <v-icon class="ml-2" :icon="mdiMagnify" /></v-btn>
-          <v-btn color="amber" class="ml-1 mb-1" @click="deletePreview">{{ $t('scan.btn-clear') }} <v-icon class="ml-2" :icon="mdiDelete" /></v-btn>
-        </div>
-      </v-col>
-
-      <v-col cols="12" md="6" class="mb-10 mb-md-0 d-flex justify-center">
-        <div style="width: 100%" :style="{ maxWidth: `${preview.width}px` }">
-          <cropper v-if="geometry" ref="cropper" :key="preview.key" class="cropper" :transition-time="10" :wheel-resize="false"
+        <div class="grid min-h-[420px] place-items-center bg-base-200 p-4 sm:min-h-[620px] sm:p-8">
+          <div class="w-full" :style="{ maxWidth: `${preview.width}px` }">
+            <cropper v-if="geometry" ref="cropper" :key="preview.key" class="cropper overflow-hidden rounded-lg shadow-lg" :transition-time="10" :wheel-resize="false"
               :default-position="cropperDefaultPosition" :default-size="cropperDefaultSize"
               :src="img" @change="onCropperChange" />
-          <v-img v-if="!geometry" :src="img" />
+            <img v-else :src="img" class="mx-auto max-h-[70vh] w-full rounded-lg object-contain shadow-lg" alt="Scanner preview">
+          </div>
         </div>
-      </v-col>
-
-      <v-col cols="12" md="3" class="mb-10 mb-md-0">
-        <template v-if="geometry">
-          <v-text-field v-model="request.params.top" :label="$t('scan.top')" type="number" step="any" @blur="onCoordinatesChange" />
-          <v-text-field v-model="request.params.left" :label="$t('scan.left')" type="number" step="any" @blur="onCoordinatesChange" />
-          <v-text-field v-model="request.params.width" :label="$t('scan.width')" type="number" step="any" @blur="onCoordinatesChange" />
-          <v-text-field v-model="request.params.height" :label="$t('scan.height')" type="number" step="any" @blur="onCoordinatesChange" />
-
-          <v-menu offset-y>
-            <template #activator="{ props }">
-              <v-btn color="primary" class="mb-4" v-bind="props">{{ $t('scan.paperSize') }}</v-btn>
-            </template>
-            <v-list dense>
-              <v-list-item
-                v-for="(item, index) in paperSizes"
-                :key="index"
-                @click="updatePaperSize(item)">
-                <v-list-item-title>{{ item.name }}</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-menu>
-        </template>
-
-        <template v-if="'--brightness' in device.features">
-          <v-slider v-model="request.params.brightness" class="align-center ml-0"
-            :step="device.features['--brightness']['interval']"
-            :min="device.features['--brightness']['limits'][0]"
-            :max="device.features['--brightness']['limits'][1]">
-            <template #prepend>
-              <v-text-field v-model="request.params.brightness" 
-                :label="$t('scan.brightness')" style="width: 60px" type="number" />
-            </template>
-          </v-slider>
-        </template>
-
-        <div v-if="'--contrast' in device.features">
-          <v-slider v-model="request.params.contrast" class="align-center ml-0"
-            :step="device.features['--contrast']['interval']"
-            :min="device.features['--contrast']['limits'][0]"
-            :max="device.features['--contrast']['limits'][1]">
-            <template #prepend>
-              <v-text-field v-model="request.params.contrast" 
-                :label="$t('scan.contrast')" style="width: 60px" type="number" />
-            </template>
-          </v-slider>
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-base-300 px-4 py-3 sm:px-5">
+          <p class="text-xs text-base-content/60">{{ geometry ? $t('scan.width') + ' × ' + $t('scan.height') : $t('scan.source') }}</p>
+          <button class="btn btn-ghost btn-sm" @click="deletePreview">
+            <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+            {{ $t('scan.btn-clear') }}
+          </button>
         </div>
-      </v-col>
-    </v-row>
+        </div>
+      </section>
+
+      <aside class="space-y-4">
+        <section class="card rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+          <div class="card-body p-4 sm:p-5">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-sm font-semibold">{{ $t('scan.device') }}</h2>
+            <span class="text-[11px] text-base-content/60">{{ context.devices.length }} {{ context.devices.length === 1 ? 'device' : 'devices' }}</span>
+          </div>
+          <select v-if="context.devices.length" v-model="device" class="select select-bordered w-full" @change="clear">
+            <option v-for="item in context.devices" :key="item.id" :value="item">{{ item.name }}</option>
+          </select>
+          <div v-else class="alert alert-warning alert-soft py-2 text-sm">{{ $t('scan.message:no-devices') }}</div>
+
+          <div class="mt-5 grid grid-cols-2 gap-3">
+            <label v-if="'--source' in device.features" class="field-label">
+              {{ $t('scan.source') }}
+              <select v-model="request.params.source" class="select select-bordered mt-1.5 w-full">
+                <option v-for="item in sources" :key="item.value" :value="item.value">{{ item.text }}</option>
+              </select>
+            </label>
+            <label v-if="'--mode' in device.features" class="field-label">
+              {{ $t('scan.mode') }}
+              <select v-model="request.params.mode" class="select select-bordered mt-1.5 w-full">
+                <option v-for="item in modes" :key="item.value" :value="item.value">{{ item.text }}</option>
+              </select>
+            </label>
+            <label class="field-label">
+              {{ $t('scan.resolution') }}
+              <select v-model.number="request.params.resolution" class="select select-bordered mt-1.5 w-full">
+                <option v-for="resolution in device.features['--resolution'].options" :key="resolution" :value="resolution">{{ resolution }} dpi</option>
+              </select>
+            </label>
+            <label class="field-label">
+              {{ $t('scan.format') }}
+              <select v-model="request.pipeline" class="select select-bordered mt-1.5 w-full">
+                <option v-for="item in pipelines" :key="item.value" :value="item.value">{{ item.text }}</option>
+              </select>
+            </label>
+          </div>
+
+          <label v-if="'--adf-mode' in device.features" class="field-label mt-4 block">
+            {{ $t('scan.adf-mode') }}
+            <select v-model="request.params.adfMode" class="select select-bordered mt-1.5 w-full">
+              <option v-for="item in adfModes" :key="item.value" :value="item.value">{{ item.text }}</option>
+            </select>
+          </label>
+
+          <label class="field-label mt-4 block">
+            {{ $t('scan.batch') }}
+            <select v-model="request.batch" class="select select-bordered mt-1.5 w-full">
+              <option v-for="item in batchModes" :key="item.value" :value="item.value">{{ item.text }}</option>
+            </select>
+          </label>
+          </div>
+        </section>
+
+        <section class="card rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+          <div class="card-body p-4 sm:p-5">
+          <h2 class="text-sm font-semibold">{{ $t('scan.filters') }}</h2>
+          <div class="mt-3 space-y-2.5">
+            <label v-for="item in filters" :key="item.value" class="flex cursor-pointer items-center gap-2.5 text-[13px] text-base-content/80">
+              <input v-model="request.filters" type="checkbox" :value="item.value" class="checkbox checkbox-primary checkbox-sm" @change="readPreview">
+              {{ item.text }}
+            </label>
+          </div>
+          </div>
+        </section>
+
+        <details class="collapse collapse-arrow rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+          <summary class="collapse-title text-sm font-semibold">{{ $t('scan.paperSize') }} &amp; {{ $t('scan.filters') }}</summary>
+          <div class="collapse-content space-y-4 border-t border-base-300 px-4 py-4 sm:px-5">
+            <label v-if="geometry" class="field-label block">
+              {{ $t('scan.paperSize') }}
+              <select v-model="paperSize" class="select select-bordered mt-1.5 w-full" @change="updatePaperSize(paperSize)">
+                <option :value="null">{{ $t('global.no-data-text') }}</option>
+                <option v-for="item in paperSizes" :key="item.name" :value="item">{{ item.name }}</option>
+              </select>
+            </label>
+            <div v-if="geometry" class="grid grid-cols-2 gap-3">
+              <label v-for="field in geometryFields" :key="field.key" class="field-label">
+                {{ field.label }}
+                <input v-model.number="request.params[field.key]" class="input input-bordered mt-1.5 w-full" type="number" step="any" @blur="onCoordinatesChange">
+              </label>
+            </div>
+            <label v-for="field in lightFields" :key="field.key" class="field-label block">
+              <span class="flex justify-between"><span>{{ field.label }}</span><span class="tabular-nums text-muted">{{ request.params[field.key] }}</span></span>
+              <input v-model.number="request.params[field.key]" class="range range-primary range-sm mt-2 w-full" type="range" :min="field.feature.limits[0]" :max="field.feature.limits[1]" :step="field.feature.interval || 1">
+            </label>
+          </div>
+        </details>
+
+        <button class="btn btn-primary w-full rounded-xl" :disabled="!context.devices.length" @click="scan(1)">
+          <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M5 5h14v14H5zM8 9h8M8 12h8M8 15h5" /></svg>
+          {{ $t('scan.btn-scan') }}
+        </button>
+      </aside>
+    </div>
 
     <batch-dialog ref="batchDialog" />
   </div>
 </template>
 
 <script>
-import { mdiCamera, mdiDelete, mdiMagnify, mdiRefresh } from '@mdi/js';
 import { Cropper } from 'vue-advanced-cropper';
 import { useI18n } from 'vue-i18n';
 import BatchDialog from './BatchDialog.vue';
@@ -167,10 +182,6 @@ export default {
   setup() {
     const { te } = useI18n();
     return {
-      mdiCamera,
-      mdiDelete,
-      mdiMagnify,
-      mdiRefresh,
       te
     };
   },
@@ -191,6 +202,7 @@ export default {
       device: device,
       img: null,
       request: request,
+      paperSize: null,
       preview: {
         timer: 0,
         width: 400,
@@ -209,6 +221,22 @@ export default {
         width: this.device.features['-x'].limits[1],
         height: this.device.features['-y'].limits[1]
       };
+    },
+
+    geometryFields() {
+      return [
+        { key: 'top', label: this.$t('scan.top') },
+        { key: 'left', label: this.$t('scan.left') },
+        { key: 'width', label: this.$t('scan.width') },
+        { key: 'height', label: this.$t('scan.height') }
+      ];
+    },
+
+    lightFields() {
+      return [
+        { key: 'brightness', feature: this.device.features['--brightness'], label: this.$t('scan.brightness') },
+        { key: 'contrast', feature: this.device.features['--contrast'], label: this.$t('scan.contrast') }
+      ].filter(field => field.feature);
     },
 
     batchModes() {
@@ -597,7 +625,7 @@ export default {
     },
 
     updatePaperSize(value) {
-      if (value.dimensions) {
+      if (value?.dimensions) {
         this.request.params.width = value.dimensions.x;
         this.request.params.height = value.dimensions.y;
         this.onCoordinatesChange();
@@ -606,15 +634,3 @@ export default {
   }
 };
 </script>
-
-<style scoped>
-#mask {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,.4);
-  top: 0;
-  left: 0;
-  z-index: 10;
-}
-</style>

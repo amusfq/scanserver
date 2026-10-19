@@ -41,4 +41,4 @@ fi
 unset IFS
 set +f
 
-node ./server/server.js
+exec ./scanserver

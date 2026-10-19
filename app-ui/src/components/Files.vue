@@ -1,84 +1,84 @@
 <template>
-  <v-data-table
-      v-model="selectedFiles"
-      :headers="headers"
-      :items="files"
-      :items-per-page-text="$t('files.items-per-page')"
-      return-object
-      show-select>
-    <template #top>
-      <v-toolbar flat>
-        <v-checkbox v-model="thumbnails.show"
-          class="mt-6" :label="$t('files.thumbnail-show')" />
-        <v-slider v-if="thumbnails.show" v-model="thumbnails.size" class="mt-6 ml-8" min="32" max="128"
-          step="16" :inverse-label="true"
-          :label="`${$t('files.thumbnail-size')} (${thumbnails.size})`" />
-        <v-spacer />
-        <v-btn v-if="!smAndDown" :disabled="selectedFiles.length === 0" color="warning" @click="multipleDelete">
-          {{ $t('files.button:delete-selected') }}
-        </v-btn>
-        <v-menu v-if="actions.length > 0" bottom :offset-y="true">
-          <template #activator="{ props }">
-            <v-btn
-                :disabled="selectedFiles.length === 0"
-                color="primary"
-                v-bind="props">
-              <v-icon v-if="smAndDown" :icon="mdiDotsVertical" />
-              <span v-if="!smAndDown">{{ $t('files.button:action-selected') }}</span>
-            </v-btn>
-          </template>
-          <v-list>
-            <v-list-item v-if="smAndDown" :title="$t('files.button:delete-selected')" @click="multipleDelete" />
-            <v-list-item v-for="(action, index) in actions" :key="index" :title="action" @click="multipleAction(action)" />
-          </v-list>
-        </v-menu>
-        <v-dialog v-model="dialogEdit" max-width="500px">
-          <v-card>
-            <v-card-title class="text-h5">{{ $t('files.dialog:rename') }}</v-card-title>
-            <v-card-text>
-              <v-container>
-                <v-text-field v-model="editedItem.newName" :label="$t('files.filename')" />
-              </v-container>
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer />
-              <v-btn small @click="closeRename">
-                {{ $t('files.dialog:rename-cancel') }}
-              </v-btn>
-              <v-btn small color="primary" @click="renameFileConfirm">
-                {{ $t('files.dialog:rename-save') }}
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
-      </v-toolbar>
-    </template>
+  <div class="space-y-6">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">{{ $t('navigation.files') }}</h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button :disabled="selectedFiles.length === 0" class="btn btn-outline btn-sm" @click="multipleDelete">{{ $t('files.button:delete-selected') }}<span v-if="selectedFiles.length"> · {{ selectedFiles.length }}</span></button>
+        <button class="btn btn-ghost btn-square btn-sm" :aria-label="$t('navigation.files')" @click="fileList">
+          <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M20 7v5h-5M4 17v-5h5m10-1a7 7 0 0 0-12.7-3M5 13a7 7 0 0 0 12.7 3" /></svg>
+        </button>
+      </div>
+    </header>
 
-    <template v-if="thumbnails.show" #[`item.thumb`]="{ item }">
-      <v-img :src="`api/v1/files/${item.name}/thumbnail`"
-        width="128"
-        :max-height="thumbnails.size" :max-width="thumbnails.size"
-        :contain="true" />
-    </template>
-    <template #[`item.lastModified`]="{ item }">
-      {{ $d(new Date(item.lastModified), 'long') }}
-    </template>
-    <template #[`item.actions`]="{ item }">
-      <v-icon class="mr-2" :icon="mdiDownload" @click="open(item)" />
-      <v-icon class="mr-2" :icon="mdiPencil" @click="fileRename(item)" />
-      <v-icon class="mr-2" :icon="mdiDelete" @click="fileRemove(item)" />
-    </template>
-    <template #[`footer.page-text`]="items">
-      {{ items.pageStart }} - {{ items.pageStop }} / {{ items.itemsLength }}
-    </template>
-  </v-data-table>
+    <section class="card overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-4 border-b border-base-300 px-4 py-3.5 sm:px-5">
+        <label class="flex items-center gap-2.5 text-xs font-medium text-base-content/80">
+          <input v-model="thumbnails.show" type="checkbox" class="checkbox checkbox-primary checkbox-sm">
+          {{ $t('files.thumbnail-show') }}
+        </label>
+        <label v-if="thumbnails.show" class="flex items-center gap-3 text-xs text-base-content/60">
+          {{ $t('files.thumbnail-size') }}
+          <input v-model.number="thumbnails.size" type="range" min="32" max="128" step="16" class="range range-primary range-sm w-28">
+          <span class="w-7 tabular-nums">{{ thumbnails.size }}</span>
+        </label>
+      </div>
+
+      <div v-if="!files.length" class="grid min-h-64 place-items-center px-6 py-14 text-center">
+        <div>
+          <div class="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+            <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M7 4h8l4 4v12H7zM15 4v5h4M4 8v13h12" /></svg>
+          </div>
+          <p class="mt-4 text-sm font-medium">{{ $t('files.empty') }}</p>
+          <p class="mt-1 text-xs text-base-content/60">{{ $t('navigation.scan') }}</p>
+        </div>
+      </div>
+
+      <div v-else class="divide-y divide-base-300">
+        <div v-for="file in files" :key="file.name" class="flex items-center gap-3 px-4 py-3.5 transition hover:bg-base-200/60 sm:gap-4 sm:px-5">
+          <input v-model="selectedFiles" type="checkbox" :value="file" class="checkbox checkbox-primary checkbox-sm shrink-0" :aria-label="file.name">
+          <div v-if="thumbnails.show" class="grid shrink-0 place-items-center overflow-hidden rounded-lg border border-base-300 bg-base-200" :style="{ width: `${thumbnails.size}px`, height: `${thumbnails.size}px` }">
+            <img :src="`api/v1/files/${encodeURIComponent(file.name)}/thumbnail`" class="max-h-full max-w-full object-contain" alt="" loading="lazy">
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium text-ink">{{ file.name }}</div>
+            <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-base-content/60">
+              <span>{{ $d(new Date(file.lastModified), 'short') }}</span>
+              <span>{{ file.sizeString }}</span>
+            </div>
+          </div>
+          <div class="flex shrink-0 items-center gap-1">
+            <button class="btn btn-ghost btn-square btn-sm" :aria-label="$t('files.actions')" @click="open(file)">
+              <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg>
+            </button>
+            <button class="btn btn-ghost btn-sm hidden sm:inline-flex" @click="fileRename(file)">{{ $t('files.filename') }}</button>
+            <button class="btn btn-ghost btn-square btn-sm text-error" :aria-label="$t('files.button:delete-selected')" @click="fileRemove(file)">
+              <svg viewBox="0 0 24 24" class="h-[18px] w-[18px]" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div v-if="dialogEdit" class="modal modal-open z-50" role="dialog" aria-modal="true" @click.self="closeRename">
+      <div class="modal-box max-w-md">
+        <h2 class="text-base font-semibold">{{ $t('files.dialog:rename') }}</h2>
+        <label class="field-label mt-5 block">{{ $t('files.filename') }}
+          <input v-model="editedItem.newName" class="input input-bordered mt-1.5 w-full" type="text" @keydown.enter="renameFileConfirm">
+        </label>
+        <div class="modal-action">
+          <button class="btn btn-ghost" @click="closeRename">{{ $t('files.dialog:rename-cancel') }}</button>
+          <button class="btn btn-primary" @click="renameFileConfirm">{{ $t('files.dialog:rename-save') }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
 import Common from '../classes/common';
 import Storage from '../classes/storage';
-import { mdiDelete, mdiDotsVertical, mdiDownload, mdiPencil } from '@mdi/js';
-import { useDisplay } from 'vuetify';
 const storage = Storage.instance();
 
 export default {
@@ -86,20 +86,8 @@ export default {
 
   emits: ['mask', 'notify'],
 
-  setup() {
-    const { smAndDown } = useDisplay();
-    return {
-      mdiDelete,
-      mdiDotsVertical,
-      mdiDownload,
-      mdiPencil,
-      smAndDown
-    };
-  },
-  
   data() {
     return {
-      dialogDelete: false,
       dialogEdit: false,
       files: [],
       editedItem: {
@@ -114,51 +102,8 @@ export default {
       thumbnails: {
         show: storage.settings.thumbnails.show,
         size: storage.settings.thumbnails.size
-      },
-      actions: []
-    };
-  },
-
-  computed: {
-    headers() {
-      const headers = [
-        {
-          align: 'start',
-          sortable: false,
-          value: 'thumb',
-          key: 'thumb',
-        },
-        {
-          title: this.$t('files.filename'),
-          align: 'start',
-          sortable: true,
-          key: 'name',
-        },
-        {
-          title: this.$t('files.date'),
-          align: 'start',
-          sortable: true,
-          key: 'lastModified',
-        },
-        {
-          title: this.$t('files.size'),
-          align: 'start',
-          sortable: true,
-          key: 'sizeString',
-        },
-        {
-          title: this.$t('files.actions'),
-          value: 'actions',
-          sortable: false,
-          key: 'actions',
-        },
-      ];
-
-      if (this.smAndDown) {
-        headers.splice(2, 2);
       }
-      return headers;
-    }
+    };
   },
 
   watch: {
@@ -177,21 +122,9 @@ export default {
 
   mounted() {
     this.fileList();
-    this.actionList();
   },
 
   methods: {
-    actionList() {
-      this.$emit('mask', 1);
-      Common.fetch('api/v1/context').then(context => {
-        this.actions = context.actions;
-        this.$emit('mask', -1);
-      }).catch(error => {
-        this.$emit('notify', {type: 'e', message: error});
-        this.$emit('mask', -1);
-      });
-    },
-
     fileList() {
       this.$emit('mask', 1);
       Common.fetch('api/v1/files').then(files => {
@@ -272,42 +205,9 @@ export default {
       }
     },
 
-    async multipleAction(actionName) {
-      let refresh = false;
-      while (this.selectedFiles.length > 0) {
-        refresh = true;
-        const filename = this.selectedFiles[0].name;
-        try {
-          await Common.fetch(`api/v1/files/${filename}/actions/${actionName}`, {method: 'POST'});
-          this.$emit('notify', {type: 'i', message: `${this.$t('files.message:action', [actionName, filename])}`});
-        } catch (error) {
-          this.$emit('notify', {type: 'e', message: error});
-        }
-        this.selectedFiles.splice(0, 1);
-      }
-
-      if (refresh) {
-        this.fileList();
-      }
-    },
-
     open(file) {
-      window.location.href = `api/v1/files/${file.name}`;
-    },
-
-    selectToggle(value) {
-      this.selectedFiles = value ? this.files.map(f => f.name) : [];
+      window.location.href = `api/v1/files/${encodeURIComponent(file.name)}`;
     }
   }
 };
 </script>
-
-<style>
-tbody > tr > td {
-  padding-top: 1rem !important;
-  padding-bottom: 1rem !important;
-}
-div.v-input.v-input__slider {
-  max-width: 250px;
-}
-</style>

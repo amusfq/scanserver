@@ -1,0 +1,11 @@
+.git
+.DS_Store
+node_modules
+app-ui/node_modules
+app-server/node_modules
+app-ui/dist
+app-server/dist
+dist
+target
+rust-server/target
+debian

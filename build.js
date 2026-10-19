@@ -1,10 +1,7 @@
-const fse = require('fs-extra');
-const dist = './dist';
-const options = { overwrite: true };
+const fs = require('node:fs');
 
-async function assemble() {
-  await fse.copy('./app-ui/dist', `${dist}/client`, options);
-  await fse.copy('./app-server/dist', `${dist}`, options);
-}
-
-assemble();
+fs.rmSync('dist', { recursive: true, force: true });
+fs.mkdirSync('dist');
+fs.cpSync('app-ui/dist', 'dist/client', { recursive: true });
+fs.copyFileSync('rust-server/target/release/scanserver', 'dist/scanserver');
+fs.chmodSync('dist/scanserver', 0o755);

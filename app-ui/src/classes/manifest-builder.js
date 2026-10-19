@@ -1,5 +1,3 @@
-import colors from 'vuetify/lib/util/colors';
-
 export default class ManifestBuilder {
   constructor() {
   }
@@ -19,21 +17,7 @@ export default class ManifestBuilder {
   }
 
   themeColor() {
-    const appColor = this.storage.settings.appColor;
-    switch (appColor) {
-      case 'accent-4':
-        return this.dark ? '#272727' : '#F5F5F5';
-      case 'deep-purple':
-        return colors['deepPurple']['base'];
-      case 'light-blue':
-        return colors['lightBlue']['base'];
-      case 'light-green':
-        return colors['lightGreen']['base'];
-      case 'deep-orange':
-        return colors['deepOrange']['base'];
-      default:
-        return colors[appColor]['base'];
-    }
+    return this.dark ? '#171d1a' : '#f5f6f3';
   }
 
   build() {
@@ -43,9 +27,9 @@ export default class ManifestBuilder {
       display : 'standalone',
       scope : '/',
       start_url : '/#/scan',
-      name : 'scanservjs',
-      short_name : 'scanservjs',
-      description : 'SANE scanner nodejs web ui',
+      name : 'Scanserver',
+      short_name : 'Scanserver',
+      description : 'A simple network scanner',
       icons : [
         {
           src : './icons/android-chrome-192x192.png',

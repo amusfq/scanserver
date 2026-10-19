@@ -3,13 +3,11 @@
 # Configure constants
 BASE="./debian"
 APP_NAME="scanservjs"
-PATH_ETC="/etc/$APP_NAME"
 PATH_SYSTEMD="/lib/systemd/system"
 PATH_RUNTIME="/var/lib/$APP_NAME"
 PATH_LIB="/usr/lib/$APP_NAME"
 PATH_DOC="/usr/share/doc/$APP_NAME"
 DIR_DEBIAN="$BASE/DEBIAN"
-DIR_ETC="$BASE$PATH_ETC"
 DIR_SYSTEMD="$BASE$PATH_SYSTEMD"
 DIR_RUNTIME="$BASE$PATH_RUNTIME"
 DIR_LIB="$BASE$PATH_LIB"
@@ -17,11 +15,11 @@ DIR_DOC="$BASE$PATH_DOC"
 USER=scanservjs
 GROUP=users
 VERSION=$(cat package.json | grep '"version":' | cut -d '"' -f 4)
+ARCH=$(dpkg --print-architecture)
 
 # Recreate structure
 rm -rfv $BASE
 mkdir -pv $DIR_DEBIAN
-mkdir -pv $DIR_ETC
 mkdir -pv $DIR_SYSTEMD
 mkdir -pv $DIR_RUNTIME/output
 mkdir -pv $DIR_RUNTIME/preview
@@ -32,22 +30,7 @@ mkdir -pv $DIR_DOC
 
 # Copy distribution
 cp -rv dist/* $DIR_LIB
-
-# Install node deps
-npm clean-install --omit=dev --only=prod --loglevel=error --prefix $DIR_LIB
-
-# Get rid of map files
-find $DIR_LIB -name "*.map" -type f -delete
-
-# Move and tidy up files
-mv -v $DIR_LIB/data/preview/* $DIR_RUNTIME/preview/
-mv -v $DIR_LIB/config/* $DIR_ETC/
-rm -rfv $DIR_LIB/data \
-  $DIR_LIB/config
-
-# Create symlinks
-ln -sv $PATH_RUNTIME $DIR_LIB/data
-ln -sv $PATH_ETC $DIR_LIB/config
+chmod +x $DIR_LIB/scanserver
 
 # systemd
 cat > $DIR_SYSTEMD/scanservjs.service << EOF
@@ -56,12 +39,13 @@ Description=scanservjs
 After=network.target
 
 [Service]
-ExecStart=$PATH_LIB/server/server.js
+ExecStart=$PATH_LIB/scanserver
 Restart=always
 User=$USER
 Group=$GROUP
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ENV=production
+Environment=SCANSERV_STATIC_DIR=$PATH_LIB/client
+Environment=SCANSERV_DATA_DIR=$PATH_RUNTIME
 WorkingDirectory=$PATH_LIB
 
 [Install]
@@ -74,16 +58,16 @@ Package: scanservjs
 Version: $VERSION
 Section: utils
 Priority: optional
-Architecture: all
-Depends: adduser, nodejs (>= 12), imagemagick, sane-utils
+Architecture: $ARCH
+Depends: adduser, imagemagick, poppler-utils, sane-utils
 Recommends: sane-airscan, ipp-usb, tesseract-ocr, tesseract-ocr-ara, tesseract-ocr-ces, tesseract-ocr-deu, tesseract-ocr-eng, tesseract-ocr-spa, tesseract-ocr-fra, tesseract-ocr-ita, tesseract-ocr-nld, tesseract-ocr-pol, tesseract-ocr-por, tesseract-ocr-rus, tesseract-ocr-tur, tesseract-ocr-chi-sim
-Maintainer: Sam Strachan <info@sbs20.com>
+Maintainer: amusfq <amusfq@users.noreply.github.com>
 Description: Web-based UI for SANE
-  scanservjs allows you to share a scanner on a network without the need for
+  Scanserver allows you to share a scanner on a network without the need for
   drivers or complicated installation on end devices.
 Installed-Size: $(du -s $BASE | cut -f 1)
 Size: $(($(tar -Jcf - $BASE/* | wc -c) / 1024))
-Homepage: https://github.com/sbs20/scanservjs
+Homepage: https://github.com/amusfq/scanserver
 EOF
 
 # DEBIAN/preinst
@@ -161,7 +145,6 @@ if [ "\$1" = "configure" ] ; then
     echo "your old settings then you can do the following:"
     echo
     echo "  cp -v /var/www/scanservjs/data/output/* $PATH_RUNTIME/output/"
-    echo "  sudo cp -v /var/www/scanservjs/config/*.local.js $PATH_ETC/"
     echo
     echo "If you wish to go further then:"
     echo
@@ -205,13 +188,13 @@ case "\$1" in
     deb-systemd-helper purge 'scanservjs.service' >/dev/null || true
     deb-systemd-helper unmask 'scanservjs.service' >/dev/null || true
 
-    # Remove all data
+    # Remove the installed application files; keep scanned output in /var/lib.
     rm -rf $PATH_LIB
 
     # Let the user know about deleting other stuff
     echo "Consider removing the following. You will need root privileges:"
     echo "  userdel -r $USER"
-    echo "  rf -rf $PATH_ETC $PATH_RUNTIME"
+    echo "  rm -rf $PATH_RUNTIME"
   ;;
 
   *)
@@ -220,11 +203,6 @@ case "\$1" in
   ;;
 esac
 exit 0
-EOF
-
-# DEBIAN/conffiles
-cat > $DIR_DEBIAN/conffiles << EOF
-$PATH_ETC/config.default.js
 EOF
 
 # /usr/share/doc/scanservjs/copyright
@@ -239,15 +217,15 @@ EOF
 
 # Permissions
 chmod +x -v $DIR_DEBIAN/postinst
-chmod +x -v $DIR_DEBIAN/postrm
+  chmod +x -v $DIR_DEBIAN/postrm
 chmod +x -v $DIR_DEBIAN/preinst
 chmod +x -v $DIR_DEBIAN/prerm
-chmod +x -v $DIR_LIB/server/server.js
+chmod +x -v $DIR_LIB/scanserver
 
 # Build
-dpkg-deb --root-owner-group -Zxz --build ./debian ./debian/scanservjs_$VERSION-1_all.deb
+dpkg-deb --root-owner-group -Zxz --build ./debian ./debian/scanservjs_$VERSION-1_$ARCH.deb
 
 # Optional linting
 if [ "$1" = "--lint" ]; then
-  lintian --suppress-tags dir-or-file-in-srv,no-changelog ./debian/scanservjs_$VERSION-1_all.deb
+  lintian --suppress-tags dir-or-file-in-srv,no-changelog ./debian/scanservjs_$VERSION-1_$ARCH.deb
 fi

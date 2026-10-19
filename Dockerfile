@@ -1,39 +1,25 @@
-# Builder image
-#
-# The builder image builds the core javascript app and debian package
-# ==============================================================================
-FROM --platform=$BUILDPLATFORM node:24-trixie-slim AS scanservjs-build
-ENV APP_DIR=/app
-WORKDIR "$APP_DIR"
-
-COPY package*.json build.js "$APP_DIR/"
-COPY app-server/package*.json "$APP_DIR/app-server/"
-COPY app-ui/package*.json "$APP_DIR/app-ui/"
-
-RUN npm clean-install . && npm run bootstrap
-
-COPY --exclude="**/node_modules" app-server/ "$APP_DIR/app-server/"
-COPY --exclude="**/node_modules" app-ui/ "$APP_DIR/app-ui/"
-
+FROM node:24-trixie-slim AS ui-build
+WORKDIR /app
+COPY app-ui/package*.json ./
+RUN npm clean-install
+COPY app-ui/ ./
 RUN npm run build
 
-COPY makedeb.sh "$APP_DIR/"
-RUN ./makedeb.sh
+FROM rust:1-trixie AS rust-build
+WORKDIR /workspace
+COPY rust-server/Cargo.toml rust-server/Cargo.lock ./rust-server/
+COPY rust-server/src ./rust-server/src
+COPY app-server/data/preview/default.jpg ./app-server/data/preview/default.jpg
+WORKDIR /workspace/rust-server
+RUN cargo build --locked --release
 
-# Sane image
-#
-# This is the minimum trixie/node/sane image required which is used elsewhere.
-# Dependencies are installed here in order to anticipate and cache what will
-# be required by the deb package. It would all still work perfectly well if this
-# layer did not exist but testing would be slower and more painful.
-# ==============================================================================
 FROM debian:trixie-slim AS scanservjs-base
 RUN apt-get update \
   && apt-get install -yq \
-    nodejs \
     adduser \
     imagemagick \
     ipp-usb \
+    poppler-utils \
     sane-airscan \
     sane-utils \
     tesseract-ocr \
@@ -49,74 +35,39 @@ RUN apt-get update \
     tesseract-ocr-rus \
     tesseract-ocr-tur \
     tesseract-ocr-chi-sim \
-  && rm -rf /var/lib/apt/lists/*;
+  && if [ -f /etc/ImageMagick-6/policy.xml ]; then sed -i 's/policy domain="coder" rights="none" pattern="PDF"/policy domain="coder" rights="read | write" pattern="PDF"/' /etc/ImageMagick-6/policy.xml; fi \
+  && if [ -f /etc/ImageMagick-7/policy.xml ]; then sed -i 's/policy domain="coder" rights="none" pattern="PDF"/policy domain="coder" rights="read | write" pattern="PDF"/' /etc/ImageMagick-7/policy.xml; fi \
+  && rm -rf /var/lib/apt/lists/*
 
-# Core image
-#
-# This is the minimum core image required. It installs the base dependencies for
-# sane and tesseract. The executing user remains ROOT. If you want to build your
-# own image with drivers then this is likely the image to start from.
-# ==============================================================================
 FROM scanservjs-base AS scanservjs-core
 ENV \
-  # This goes into /etc/sane.d/net.conf
   SANED_NET_HOSTS="" \
-  # This gets added to /etc/sane.d/airscan.conf
   AIRSCAN_DEVICES="" \
-  # This gets added to /etc/sane.d/pimxa.conf
   PIXMA_HOSTS="" \
-  # This directs scanserv not to bother querying `scanimage -L`
   SCANIMAGE_LIST_IGNORE="" \
-  # This gets added to scanservjs/server/config.js:devices
   DEVICES="" \
-  # Override OCR language
-  OCR_LANG=""
+  OCR_LANG="" \
+  SCANSERV_STATIC_DIR=/usr/lib/scanservjs/client \
+  SCANSERV_DATA_DIR=/data
 
-# Copy entry point
+RUN mkdir -p /usr/lib/scanservjs/client /data
+COPY --from=rust-build /workspace/rust-server/target/release/scanserver /usr/lib/scanservjs/scanserver
+COPY --from=ui-build /app/dist/ /usr/lib/scanservjs/client/
 COPY entrypoint.sh /entrypoint.sh
-RUN ["chmod", "+x", "/entrypoint.sh"]
-ENTRYPOINT [ "/entrypoint.sh" ]
-
-# Copy the code and install
-COPY --from=scanservjs-build "/app/debian/scanservjs_*.deb" "/"
-RUN apt-get install ./scanservjs_*.deb \
-  && rm -f ./scanservjs_*.deb
-
+RUN chmod +x /entrypoint.sh /usr/lib/scanservjs/scanserver
 WORKDIR /usr/lib/scanservjs
-
+ENTRYPOINT ["/entrypoint.sh"]
 EXPOSE 8080
 
-# User2001 image
-#
-# This image changes the executing user to 2001 for increased security. This
-# also, however, leads to some runtime issues with parameters. This was the
-# default behaviour from v2.9.0 until v2.18.1 and was because issue #177. This
-# stage is kept for backwards compatibility.
-# ==============================================================================
 FROM scanservjs-core AS scanservjs-user2001
-
-# Make it possible to override the UID/GID/username of the user running
-# scanservjs
 ARG UID=2001
 ARG GID=2001
 ARG UNAME=scanservjs
-
-# Create a known user, and change ownership on relevant files (the entrypoint
-# script and $APP_DIR must be readable to run the service itself, and some
-# config files need write access).
 RUN groupadd -g $GID -o $UNAME \
   && useradd -o -u $UID -g $GID -m -s /bin/bash $UNAME \
-  && chown -R $UID:$GID /entrypoint.sh /var/lib/scanservjs /etc/sane.d/net.conf /etc/sane.d/airscan.conf
+  && chown -R $UID:$GID /data /etc/sane.d
 USER $UNAME
 
-# default build
-FROM scanservjs-core
-
-# hplip image
-#
-# This image adds the HP scanner libs to the image. This target is not built by
-# default - you will need to specifically target it.
-# ==============================================================================
 FROM scanservjs-core AS scanservjs-hplip
 RUN apt-get update \
   && apt-get install -yq libsane-hpaio \
@@ -124,12 +75,6 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/* \
   && echo hpaio >> /etc/sane.d/dll.conf
 
-# brscan4 image
-#
-# This image includes the brscan4 driver which is needed for some Brother
-# printers/scanners. This target is not built by default -
-# you will need to specifically target it.
-# ==============================================================================
 FROM scanservjs-core AS scanservjs-brscan4
 RUN apt-get update \
   && apt-get install -yq curl \

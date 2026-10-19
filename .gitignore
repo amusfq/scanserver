@@ -55,6 +55,7 @@ dist
 .vscode
 
 # Project specific
+rust-server/target/
 app-server/**/devices.json
 app-server/data/output/*
 app-server/data/temp/*

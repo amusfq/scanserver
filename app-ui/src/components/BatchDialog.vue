@@ -1,26 +1,24 @@
 <template>
-  <v-dialog v-model="show" aria-role="dialog" max-width="620" persistent aria-modal @keydown.stop="_onKeys">
-    <v-card>
-      <v-card-title>
-        {{ message }}
-      </v-card-title>
-      <v-card-text>
-        <div class="d-flex flex-wrap flex-row-reverse">
-          <v-btn small color="primary" text @click.prevent="next">{{ $t('batch-dialog.btn-next') }}</v-btn>
-          <v-btn v-if="onFinish" small color="green" text @click.prevent="finish">{{ $t('batch-dialog.btn-finish') }}</v-btn>
-          <v-btn v-if="onRescan" small text @click.prevent="rescan">{{ $t('batch-dialog.btn-rescan') }}</v-btn>
-          <v-btn small text color="warning" @click.prevent="show = false">{{ $t('batch-dialog.btn-cancel') }}</v-btn>
-        </div>
-        <v-img v-if="image" :src="'data:image/jpeg;base64,' + image" contain />
-      </v-card-text>
-      <v-card-actions />
-    </v-card>
-  </v-dialog>
+  <div v-if="show" class="modal modal-open z-50" role="dialog" aria-modal="true" @click.self="cancel" @keydown.esc.prevent="cancel" @keydown.enter.prevent="next">
+    <section class="modal-box max-w-xl overflow-hidden p-0">
+      <div class="border-b border-base-300 px-5 py-4">
+        <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">{{ $t('scan.batch') }}</p>
+        <h2 class="mt-1 text-base font-semibold">{{ message }}</h2>
+      </div>
+      <div v-if="image" class="grid max-h-[55vh] place-items-center bg-base-200 p-4">
+        <img :src="'data:image/jpeg;base64,' + image" class="max-h-[50vh] max-w-full rounded-lg object-contain" alt="Scanned page preview">
+      </div>
+      <div class="modal-action mx-5 mb-5 mt-0">
+        <button class="btn btn-ghost mr-auto" @click="cancel">{{ $t('batch-dialog.btn-cancel') }}</button>
+        <button v-if="onRescan" class="btn btn-outline" @click="rescan">{{ $t('batch-dialog.btn-rescan') }}</button>
+        <button v-if="onFinish" class="btn btn-outline" @click="finish">{{ $t('batch-dialog.btn-finish') }}</button>
+        <button class="btn btn-primary" @click="next">{{ $t('batch-dialog.btn-next') }}</button>
+      </div>
+    </section>
+  </div>
 </template>
 
 <script>
-import Constants from '../classes/constants';
-
 export default {
   name: 'BatchDialog',
   data() {
@@ -30,38 +28,25 @@ export default {
       show: false,
       onFinish: null,
       onNext: null,
-      onRescan: null,
+      onRescan: null
     };
   },
-
   methods: {
-    _onKeys(event) {
-      if (event.keyCode === Constants.Keys.enter) {
-        this.ok();
-      }
-    },
-
     finish() {
       this.show = false;
-      if (this.onFinish) {
-        this.onFinish();
-      }
+      this.onFinish?.();
     },
-
     rescan() {
       this.show = false;
-      if (this.onRescan) {
-        this.onRescan();
-      }
+      this.onRescan?.();
     },
-
     next() {
       this.show = false;
-      if (this.onNext) {
-        this.onNext();
-      }
+      this.onNext?.();
     },
-
+    cancel() {
+      this.show = false;
+    },
     open(options) {
       this.message = options.message;
       this.image = options.image;

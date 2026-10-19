@@ -1,149 +1,72 @@
 <template>
-  <div>
-    <div class="text-h5 mb-4">{{ $t('settings.title') }}</div>
-    <settings-section>
-      <template #title>{{ $t('settings.behaviour-ui') }}</template>
-      <template #items>
-        <settings-item>
-          <template #description>
-            {{ $t('settings.theme:description') }}
-          </template>
-          <template #action>
-            <div style="max-width: 10rem;">
-              <v-select v-model="settings.theme" :label="$t('settings.theme')" :items="themes" item-title="text" @update:model-value="reload" />
-            </div>
-          </template>
-        </settings-item>
-        <settings-item>
-          <template #description>
-            {{ $t('settings.color:description') }}
-          </template>
-          <template #action>
-            <div style="max-width: 10rem;">
-              <v-menu offset-y>
-                <template #activator="{ props }">
-                  <v-btn v-bind="props">{{ $t('settings.color') }}</v-btn>
-                </template>
-                <v-list>
-                  <v-list-item v-for="item in colors" :key="item.value" :class="`bg-${item.value}`"
-                    min-height="36px"
-                    :title="item.text"
-                    @click="settings.appColor = item.value; reload()" />
-                </v-list>
-              </v-menu>
-            </div>
-          </template>
-        </settings-item>
-        <settings-item>
-          <template #description>
-            {{ $t('settings.locale:description') }}
-          </template>
-          <template #action>
-            <div style="max-width: 10rem;">
-              <v-select v-model="settings.locale" :label="$t('settings.locale')"
-                :items="locales" item-title="text"
-                item-value="value" @update:model-value="reload" />
-            </div>
-          </template>
-        </settings-item>
-        <settings-item>
-          <template #description>
-            {{ $t('settings.show-files-after-scan:description') }}
-          </template>
-          <template #action>
-            <div style="max-width: 10rem;">
-              <v-switch v-model="settings.showFilesAfterScan" />
-            </div>
-          </template>
-        </settings-item>
-      </template>
-    </settings-section>
+  <div class="space-y-6">
+    <header>
+      <h1 class="text-2xl font-semibold tracking-tight sm:text-[28px]">{{ $t('settings.title') }}</h1>
+    </header>
 
-    <settings-section>
-      <template #title>{{ $t('settings.devices') }}</template>
-      <template #items>
-        <settings-item>
-          <template #description>
-            {{ $t('settings.reset:description') }}
-          </template>
-          <template #action>
-            <v-btn color="warning" class="ml-1 mb-1" @click="reset">{{ $t('settings.reset') }} <v-icon class="ml-2" :icon="mdiRefresh" /></v-btn>
-          </template>
-        </settings-item>
+    <section class="card overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body divide-y divide-base-300 gap-0 p-0">
+      <div class="border-b border-base-300 px-4 py-4 sm:px-5">
+        <h2 class="text-sm font-semibold">{{ $t('settings.behaviour-ui') }}</h2>
+      </div>
+      <label class="grid gap-3 px-4 py-4 sm:grid-cols-[1fr_14rem] sm:items-center sm:px-5">
+        <span class="field-label">{{ $t('settings.theme') }}<span class="mt-1 block font-normal text-base-content/60">{{ $t('settings.theme:description') }}</span></span>
+        <select v-model="settings.theme" class="select select-bordered w-full" @change="reload">
+          <option v-for="item in themes" :key="item.value" :value="item.value">{{ item.text }}</option>
+        </select>
+      </label>
+      <label class="grid gap-3 px-4 py-4 sm:grid-cols-[1fr_14rem] sm:items-center sm:px-5">
+        <span class="field-label">{{ $t('settings.locale') }}<span class="mt-1 block font-normal text-base-content/60">{{ $t('settings.locale:description') }}</span></span>
+        <select v-model="settings.locale" class="select select-bordered w-full" @change="reload">
+          <option v-for="item in locales" :key="item.value" :value="item.value">{{ item.text }}</option>
+        </select>
+      </label>
+      <label class="flex cursor-pointer items-center justify-between gap-4 px-4 py-4 sm:px-5">
+        <span class="field-label">{{ $t('settings.show-files-after-scan') }}<span class="mt-1 block font-normal text-base-content/60">{{ $t('settings.show-files-after-scan:description') }}</span></span>
+        <input v-model="settings.showFilesAfterScan" type="checkbox" class="checkbox checkbox-primary shrink-0">
+      </label>
+      </div>
+    </section>
 
-        <settings-item>
-          <template #description>
-            {{ $t('settings.clear-storage:description') }}
-          </template>
-          <template #action>
-            <v-btn color="warning" class="ml-1 mb-1" @click="reset">{{ $t('settings.clear-storage') }} <v-icon class="ml-2" :icon="mdiDelete" /></v-btn>
-          </template>
-        </settings-item>
-      </template>
-    </settings-section>
+    <section class="card overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+      <div class="card-body divide-y divide-base-300 gap-0 p-0">
+      <div class="border-b border-base-300 px-4 py-4 sm:px-5">
+        <h2 class="text-sm font-semibold">{{ $t('settings.devices') }}</h2>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-5">
+        <div class="field-label">{{ $t('settings.reset') }}<p class="mt-1 font-normal text-base-content/60">{{ $t('settings.reset:description') }}</p></div>
+        <button class="btn btn-outline" @click="reset">{{ $t('settings.reset') }}</button>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-5">
+        <div class="field-label">{{ $t('settings.clear-storage') }}<p class="mt-1 font-normal text-base-content/60">{{ $t('settings.clear-storage:description') }}</p></div>
+        <button class="btn btn-outline" @click="clearStorage">{{ $t('settings.clear-storage') }}</button>
+      </div>
+      </div>
+    </section>
   </div>
 </template>
 
 <script>
-import { mdiDelete, mdiRefresh } from '@mdi/js';
 import Common from '../classes/common';
 import Constants from '../classes/constants';
 import Storage from '../classes/storage';
-
-import SettingsSection from './SettingsSection.vue';
-import SettingsItem from './SettingsItem.vue';
 
 const storage = Storage.instance();
 
 export default {
   name: 'Settings',
-
-  components: {
-    SettingsSection,
-    SettingsItem
-  },
-
   emits: ['mask', 'notify'],
 
-  setup() {
-    return {
-      mdiDelete,
-      mdiRefresh,
-    };
-  },
-
   data() {
-    return {
-      settings: storage.settings
-    };
+    return { settings: storage.settings };
   },
 
   computed: {
-    colors() {
-      return Constants.Colors.map(c => {
-        return {
-          text: this.$t(`colors.${c}`),
-          value: c
-        };
-      });
-    },
-
     locales() {
-      return Constants.Locales.map(l => {
-        return {
-          text: this.$t(`locales.${l}`),
-          value: l
-        };
-      });
+      return Constants.Locales.map(value => ({ text: this.$t(`locales.${value}`), value }));
     },
-
     themes() {
-      return Object.keys(Constants.Themes).map(t => {
-        return {
-          text: this.$t(`settings.theme:${Constants.Themes[t]}`),
-          value: Constants.Themes[t]
-        };
-      });
+      return Object.values(Constants.Themes).map(value => ({ text: this.$t(`settings.theme:${value}`), value }));
     }
   },
 
@@ -160,17 +83,14 @@ export default {
     clearStorage() {
       storage.request = null;
     },
-
     reload() {
+      storage.settings = this.settings;
       location.href = `?anticache=${Date.now()}${location.hash}`;
     },
-
     reset() {
       this.$emit('mask', 1);
-      Common.fetch('api/v1/context', {
-        method: 'DELETE'
-      }).then(() => {
-        this.$emit('mask', -1);
+      Common.fetch('api/v1/context', { method: 'DELETE' }).then(() => {
+        this.reload();
       }).catch(error => {
         this.$emit('notify', { type: 'e', message: error });
         this.$emit('mask', -1);
@@ -179,7 +99,3 @@ export default {
   }
 };
 </script>
-
-<style>
-
-</style>
